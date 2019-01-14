@@ -1,3 +1,29 @@
+let $ = function(entity) {
+	return new Query(entity);
+};
+
+let Query = function(entity) {
+	this.entity = entity;
+}
+
+Query.prototype.ResourceSupply = function() {
+	return Engine.QueryInterface(this.entity, IID_ResourceSupply);
+}
+
+Query.prototype.ResourceGatherer = function() {
+	return Engine.QueryInterface(this.entity, IID_ResourceGatherer);
+}
+
+Query.prototype.Health = function() {
+	return Engine.QueryInterface(this.entity, IID_Health);
+}
+
+Query.prototype.UnitAI = function() {
+	return Engine.QueryInterface(this.entity, IID_UnitAI);
+}
+
+Engine.RegisterGlobal("$", $);
+
 var rts = {};
 
 Engine.RegisterMessageType("Signal");
@@ -165,6 +191,53 @@ rts.Detach = function(entity) {
 	if (cmpEntUnitAI)
 		cmpEntUnitAI.ResetTurretStance();
 }
+
+rts.Register = function(component) {
+	let NameOf = function(variable) {
+		return Object.keys(variable)[0];
+	};
+	let Name = NameOf(component);
+	let Value = component[Name];
+
+	Engine.RegisterInterface(Name);  
+	
+	let iid = eval("IID_"+Name);
+	
+	Query.prototype[Name] = function() {
+		return Engine.QueryInterface(this.entity, iid);
+	};
+	
+	rts.RegisterComponent(iid, Name, Value);
+};
+
+rts.Messages = {};
+
+rts.RegisterMessage = function(name) {
+	Engine.RegisterMessageType(name);
+	
+	let Message = function(MT) {
+		this.MessageType = MT;
+	};
+	
+	Message.prototype.Send = function(entity, args) {
+		Engine.PostMessage(entity, this.MessageType, args);
+	};
+	
+	rts.Messages[name] = new Message(eval("MT_"+name));
+};
+
+rts.RegisterSystem = function(component) {
+	let NameOf = function(variable) {
+		return Object.keys(variable)[0];
+	};
+	let Name = NameOf(component);
+	let Value = component[Name];
+	
+	if (!Name) error(Name+" did not work..");
+
+	Engine.RegisterInterface(Name);  
+	rts.RegisterComponent(eval("IID_"+Name), Name, Value, true);
+};
 
 rts.RegisterComponent = function(component, name, definition, system) {
 	
@@ -444,6 +517,19 @@ rts.Copy = function(cmp, property, a, b) {
 	if (A && B) {
 		B[property] = A[property];
 	}
+}
+
+let deferred = [];
+rts.Defer = function(func) {
+	deferred.push(func);
+}
+rts.FinalHooks = function() {
+	for (let func of deferred) {
+		func();
+	}
+	
+	//UnitFsmSpec may have been changed so rebuild it.
+	UnitAI.prototype.UnitFsm = new FSM(UnitAI.prototype.UnitFsmSpec);
 }
 
 Engine.RegisterGlobal("rts", rts);
