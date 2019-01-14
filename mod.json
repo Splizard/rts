@@ -3,5 +3,5 @@
 	"version": "0.1",
 	"label": "Real Time Strategy",
 	"description": "API for building mods.",
-	"dependencies": []
+	"dependencies": ["0ad=0.0.24"]
 } 
